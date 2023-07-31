@@ -21,14 +21,25 @@ Gravity = fd.Constant(gravity)
 # Coriolis force
 
 
-def coriolis_expression(x, y, z):
-    return 2*Omega*z/Radius
+def coriolis_expression(x, y, z, omega=Omega, radius=Radius):
+    """
+    Spatially varying coriolis expression on the sphere.
+
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
+    :arg omega: rotation rate of the sphere. Defaults to earth.
+    :arg radius: radius of the sphere. Defaults to earth.
+    """
+    return 2*omega*z/radius
 
 
-# convert cartesian coordinates to latitude/longitude coordinates
 def cart_to_sphere_coords(x, y, z):
     '''
-    return latitude and longitude coordinates
+    Convert cartesian coordinates to latitude/longitude coordinates.
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
     '''
     r = fd.sqrt(x*x + y*y + z*z)
     zr = z/r
@@ -39,8 +50,16 @@ def cart_to_sphere_coords(x, y, z):
     return theta, lamda
 
 
-# convert vector in spherical coordinates to cartesian coordinates
 def sphere_to_cart_vector(x, y, z, uzonal, umerid):
+    '''
+    Convert vector in spherical coordinates to cartesian coordinates.
+
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
+    :arg uzonal: zonal component of vector.
+    :arg umerid: meridional component of vector.
+    '''
     theta, lamda = cart_to_sphere_coords(x, y, z)
     cart_u_expr = -uzonal*fd.sin(lamda) - umerid*fd.sin(theta)*fd.cos(lamda)
     cart_v_expr = uzonal*fd.cos(lamda) - umerid*fd.sin(theta)*fd.sin(lamda)

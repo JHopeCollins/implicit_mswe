@@ -32,16 +32,40 @@ Mountain_centre_theta = fd.Constant(mountain_centre_theta)
 
 # coriolis parameter f
 def coriolis_expression(x, y, z):
+    """
+    UFL expression for the coriolis.
+
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
+    """
     return case2.coriolis_expression(x, y, z)
 
 
 # velocity field u
 def velocity_expression(x, y, z, uref=U0):
+    """
+    UFL expression for the initial velocity.
+
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
+    :arg uref: the reference velocity. Defaults to the Williamson1992 value.
+    """
     return case2.velocity_expression(x, y, z, uref=uref)
 
 
 # elevation field eta
 def elevation_expression(x, y, z, href=H0, uref=U0):
+    """
+    UFL expression for the initial elevation perturbation.
+
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
+    :arg uref: the reference velocity. Defaults to the Williamson1992 value.
+    :arg href: the reference depth. Defaults to the Williamson1992 value.
+    """
     return case2.elevation_expression(x, y, z, href=href, uref=uref)
 
 
@@ -51,6 +75,20 @@ def topography_expression(x, y, z,
                           height=Mountain_height,
                           theta_c=Mountain_centre_theta,
                           lambda_c=Mountain_centre_lambda):
+    """
+    UFL expression for the topography.
+
+    :arg x: cartesian x location.
+    :arg y: cartesian y location.
+    :arg z: cartesian z location.
+    :arg radius: radius of the base of the mountain.
+        Defaults to the Williamson1992 value.
+    :arg height: height of the mountain. Defaults to the Williamson1992 value.
+    :arg theta_c: latitude of the centre of the mountain.
+        Defaults to the Williamson1992 value.
+    :arg lambda_c: longitude of the centre of the mountain.
+        Defaults to the Williamson1992 value.
+    """
 
     lambda_x = fd.atan_2(y/earth.Radius, x/earth.Radius)
     theta_x = fd.asin(z/earth.Radius)
