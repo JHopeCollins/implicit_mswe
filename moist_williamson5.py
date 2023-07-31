@@ -59,10 +59,27 @@ w0 = winitial.copy(deepcopy=True)
 w1 = winitial.copy(deepcopy=True)
 
 # the moisture source term
-p = fd.Function(Vq).zero()
-mphys = swe.MoistPhysics(source=lambda q, test: fd.inner(p, test),
+vapour = fd.Function(Vq).zero()
+precipitation_level = fd.Constant(10e-4)
+gamma_r = fd.Constant(10e-3)
+tau = dT
+source_interpolator = fd.Interpolator(fd.conditional(
+    vapour > precipitation_level,
+    (gamma_r/tau)*(vapour - precipitation_level), 0),
+    Vq)
+
+source = fd.Function(Vq).zero()
+mphys = swe.MoistPhysics(source=lambda q, test: fd.inner(source, test),
                          beta1=fd.Constant(0),
                          beta2=fd.Constant(0))
+
+
+def pre_solve_callback(wr):
+    vapour.assign(wr.subfunctions[2])
+    source.assign(source_interpolator.interpolate())
+
+
+# form generating functions
 
 form_mass = partial(swe.form_mass, mesh=mesh)
 form_function = partial(swe.form_function, mesh=mesh, gparam=gparam,
@@ -78,6 +95,8 @@ v = fd.TestFunctions(W)
 method = '34'
 rkcoeffs = rungekutta_coeffs(method=method)
 dcoeff = rkcoeffs.d
+
+# function only on the rhs for explicit RK schemes
 
 lhs = form_mass(*fd.split(wl), *v)
 rhs = form_mass(*fd.split(wr), *v) - dcoeff*dT*form_function(*fd.split(wr), *v)
@@ -103,6 +122,7 @@ solver = fd.NonlinearVariationalSolver(problem, solver_parameters=sparams)
 # Runge-Kutta stepper
 ssprk = SSPRK(wl, wr, solver, rkcoeffs)
 
+# write some output
 wout = winitial.copy(deepcopy=True)
 uout, hout, qout = wout.subfunctions
 eta = fd.Function(Vh, name="elevation")
@@ -118,6 +138,8 @@ def write(wo, t):
 
 
 write(w0, t=0.)
+
+# lets go
 
 nsteps = 1
 for step in range(nsteps):
