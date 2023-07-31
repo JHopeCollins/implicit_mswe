@@ -16,7 +16,7 @@ moisture = True
 # set up the domain
 
 mesh = fd.IcosahedralSphereMesh(radius=earth.radius,
-                                refinement_level=2)
+                                refinement_level=3)
 x = fd.SpatialCoordinate(mesh)
 mesh.init_cell_orientations(x)
 
@@ -49,6 +49,13 @@ def depth(h, eta):
 
 # the unknowns and the forms
 
+# moisture parameters
+# saturation_curve = fd.Constant(10e-4)
+gamma = fd.Constant(10e-3)
+tau = dT
+qref = fd.Constant(3.)
+alpha = fd.Constant(-0.6)
+
 # left/right hand side functions
 wl = fd.Function(W)
 wr = fd.Function(W)
@@ -59,29 +66,29 @@ winitial = fd.Function(W)
 uinit, hinit, qinit = winitial.subfunctions
 uinit.interpolate(wcase.velocity_expression(*x))
 depth(hinit, wcase.elevation_expression(*x))
-qinit.zero()
+qinit.assign(0.9*qref)
 
 w0 = winitial.copy(deepcopy=True)
 w1 = winitial.copy(deepcopy=True)
 
+
 # the moisture source term
-saturation_curve = fd.Constant(10e-4)
-gamma = fd.Constant(10e-3)
-tau = dT
+def saturation_curve(win):
+    H = wcase.H0
+    h = win.subfunctions[1]
+    return qref*fd.exp(-alpha*(h-H)/H)
+
 
 saturation_source = SaturationSource(Vq, saturation_curve,
                                      gamma=gamma, tau=tau,
+                                     constant_saturation_curve=False,
                                      method='source')
 
 mphys = MoistPhysics(source=saturation_source.source_term,
-                     beta1=fd.Constant(0),
+                     beta1=fd.Constant(1),
                      beta2=fd.Constant(0))
 
-
-def pre_solve_callback(wr):
-    qr = wr.subfunctions[2]
-    saturation_source.update(qr)
-
+pre_solve_callback = saturation_source.update
 
 # form generating functions
 
@@ -142,7 +149,7 @@ write(w0, t=0.)
 
 # lets go
 
-nsteps = 1
+nsteps = 144
 for step in range(nsteps):
     Print(f"\n--- Timestep {step} ---\n")
     ssprk(w0, w1)

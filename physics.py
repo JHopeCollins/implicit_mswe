@@ -10,7 +10,8 @@ class SaturationSource(object):
     feedback onto the depth equation.
     """
     def __init__(self, Vq, saturation_curve, tau,
-                 gamma=1., method='source'):
+                 gamma=1., method='source',
+                 constant_saturation_curve=True):
         """
         :arg Vq: The moisture function space
         :arg saturation_curve: The moisture level above which moisture
@@ -28,10 +29,16 @@ class SaturationSource(object):
                 the source term will not be included in the equation Jacobian.
         """
         self.function_space = Vq
-        self.saturation_curve = saturation_curve
         self.gamma = gamma
         self.tau = tau
         self.method = method
+
+        self.constant_saturation_curve = constant_saturation_curve
+        if constant_saturation_curve:
+            self.saturation_curve = saturation_curve
+        else:
+            self.saturation_curve_calculation = saturation_curve
+            self.saturation_curve = fd.Function(Vq)
 
         if method == 'source':
             self.moisture = fd.Function(self.function_space)
@@ -62,15 +69,20 @@ class SaturationSource(object):
             source = self.source_expr(q)
         return source
 
-    def update(self, q):
+    def update(self, w):
         """
         Update the source term.
         If method='source' then the source term will be updated from the given
-        moisture Function. If method='reaction' then the source term is assumed
-        to always be up to date with the current moisture level.
+        Function. If method='reaction' then the source term is assumed to
+        always be up to date with the current solution.
 
-        :arg q: a moisture Function.
+        :arg w: the current solution.
         """
+        if not self.constant_saturation_curve:
+            new_curve = self.saturation_curve_calculation(w)
+            self.saturation_curve.interpolate(new_curve)
+
         if self.method == 'source':
+            q = w.subfunctions[2]
             self.moisture.assign(q)
             self.source_function.assign(self.interpolator.interpolate())
