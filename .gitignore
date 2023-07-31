@@ -1,0 +1,4 @@
+*.swp
+*.dat
+*__pycache__*
+results/
