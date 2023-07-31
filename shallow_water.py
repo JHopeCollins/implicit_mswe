@@ -2,7 +2,6 @@ import firedrake as fd
 from collections import namedtuple
 
 GeoParams = namedtuple("GeoParams", "g b f")
-MoistPhysics = namedtuple("MoistPhysics", "source beta1 beta2")
 
 
 def function_space(mesh, degree=1, moisture=False, bouyancy=False):
@@ -202,8 +201,8 @@ def moist_function_h(u, h, q, phi, mesh, gparam, mphys):
     dry_function = dry_function_h(u, h, phi, mesh, gparam)
 
     beta1 = mphys.beta1
-    p = mphys.source(q, phi)
-    source = -beta1*p*fd.dx
+    p = mphys.source(q)
+    source = -beta1*fd.inner(p, phi)*fd.dx
 
     return dry_function - source
 
@@ -247,8 +246,8 @@ def form_function_q(u, h, q, psi, mesh, gparam, mphys):
     """
     advection = conservative_advection_form(u, q, psi, mesh)
 
-    p = mphys.source(q, psi)
-    source = -p*fd.dx
+    p = mphys.source(q)
+    source = -fd.inner(p, psi)*fd.dx
 
     return advection - source
 

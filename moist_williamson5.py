@@ -4,6 +4,7 @@ import williamson5 as wcase
 import earth
 import shallow_water as swe
 from rungekutta import rungekutta_coeffs, SSPRK
+from physics import MoistPhysics, SaturationSource
 
 from functools import partial
 
@@ -48,48 +49,45 @@ def depth(h, eta):
 
 # the unknowns and the forms
 
+# left/right hand side functions
+wl = fd.Function(W)
+wr = fd.Function(W)
+
+# initial conditions
 winitial = fd.Function(W)
 
 uinit, hinit, qinit = winitial.subfunctions
 uinit.interpolate(wcase.velocity_expression(*x))
-hinit.interpolate(depth(hinit, wcase.elevation_expression(*x)))
+depth(hinit, wcase.elevation_expression(*x))
 qinit.zero()
 
 w0 = winitial.copy(deepcopy=True)
 w1 = winitial.copy(deepcopy=True)
 
 # the moisture source term
-vapour = fd.Function(Vq).zero()
-precipitation_level = fd.Constant(10e-4)
-gamma_r = fd.Constant(10e-3)
+saturation_curve = fd.Constant(10e-4)
+gamma = fd.Constant(10e-3)
 tau = dT
-source_interpolator = fd.Interpolator(fd.conditional(
-    vapour > precipitation_level,
-    (gamma_r/tau)*(vapour - precipitation_level), 0),
-    Vq)
 
-source = fd.Function(Vq).zero()
-mphys = swe.MoistPhysics(source=lambda q, test: fd.inner(source, test),
-                         beta1=fd.Constant(0),
-                         beta2=fd.Constant(0))
+saturation_source = SaturationSource(Vq, saturation_curve,
+                                     gamma=gamma, tau=tau,
+                                     method='source')
+
+mphys = MoistPhysics(source=saturation_source.source_term,
+                     beta1=fd.Constant(0),
+                     beta2=fd.Constant(0))
 
 
 def pre_solve_callback(wr):
-    vapour.assign(wr.subfunctions[2])
-    source.assign(source_interpolator.interpolate())
+    qr = wr.subfunctions[2]
+    saturation_source.update(qr)
 
 
 # form generating functions
 
-form_mass = partial(swe.form_mass, mesh=mesh)
+form_mass = partial(swe.form_mass, mesh=mesh, moisture=moisture)
 form_function = partial(swe.form_function, mesh=mesh, gparam=gparam,
                         mphys=mphys, moisture=moisture)
-
-# left/right hand side functions
-wl = fd.Function(W)
-wr = fd.Function(W)
-
-v = fd.TestFunctions(W)
 
 # RK weighting on timestep
 method = '34'
@@ -97,6 +95,8 @@ rkcoeffs = rungekutta_coeffs(method=method)
 dcoeff = rkcoeffs.d
 
 # function only on the rhs for explicit RK schemes
+
+v = fd.TestFunctions(W)
 
 lhs = form_mass(*fd.split(wl), *v)
 rhs = form_mass(*fd.split(wr), *v) - dcoeff*dT*form_function(*fd.split(wr), *v)
@@ -120,7 +120,8 @@ problem = fd.NonlinearVariationalProblem(form, wl)
 solver = fd.NonlinearVariationalSolver(problem, solver_parameters=sparams)
 
 # Runge-Kutta stepper
-ssprk = SSPRK(wl, wr, solver, rkcoeffs)
+ssprk = SSPRK(wl, wr, solver, rkcoeffs,
+              pre_solve_callback=pre_solve_callback)
 
 # write some output
 wout = winitial.copy(deepcopy=True)
