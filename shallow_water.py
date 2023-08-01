@@ -202,7 +202,7 @@ def moist_function_h(u, h, q, phi, mesh, gparam, mphys):
 
     beta1 = mphys.beta1
     p = mphys.source(q)
-    source = -beta1*fd.inner(p, phi)*fd.dx
+    source = -fd.inner(beta1*p, phi)*fd.dx
 
     return dry_function - source
 
